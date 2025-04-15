@@ -1,46 +1,122 @@
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native';
-import { useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { getStories, Story } from '../../firestore';
+import rawDemoStories from '../../demo_stories_100.json';
+import { Timestamp } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
+const PAGE_SIZE = 10;
 
-const mockStories = [
-  { id: '1', title: 'Una noche en el ascensor', tags: ['+18', 'Real'], locked: false },
-  { id: '2', title: 'Mi fantasía con mi mejor amiga', tags: ['Fantasía', 'Anónimo'], locked: true },
-  { id: '3', title: 'Lo que hice en la playa', tags: ['+18', 'Confesión'], locked: false },
-  { id: '4', title: 'Cuando me grabaron sin saberlo', tags: ['Secreto', 'Real'], locked: true },
-];
-
-interface Story {
-  id: string;
-  title: string;
-  tags: string[];
-  locked: boolean;
-}
+const demoStories: Story[] = rawDemoStories.map((story, index) => ({
+  ...story,
+  id: `demo-${index}`,
+  createdAt: Timestamp.now(),
+}));
 
 export default function HistoriasScreen() {
-  const [stories] = useState<Story[]>(mockStories);
+  const [allStories, setAllStories] = useState<Story[]>([]);
+  const [visibleStories, setVisibleStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [showLocked, setShowLocked] = useState<'all' | 'locked' | 'unlocked'>('all');
+
+  const getLocalStories = async (): Promise<Story[]> => {
+    try {
+      const local = await AsyncStorage.getItem('localStories');
+      return local ? JSON.parse(local) : [];
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const applyFilters = (all: Story[], tag: string | null): Story[] => {
+    let filtered = tag ? all.filter(story => story.tags.includes(tag)) : all;
+    if (showLocked === 'locked') filtered = filtered.filter(story => story.locked);
+    if (showLocked === 'unlocked') filtered = filtered.filter(story => !story.locked);
+    return filtered;
+  };
+
+  const loadMoreStories = () => {
+    const filtered = applyFilters(allStories, selectedTag);
+    const start = (page - 1) * PAGE_SIZE;
+    const nextPage = filtered.slice(start, start + PAGE_SIZE);
+    setVisibleStories(nextPage);
+  };
+
+  const fetchStories = async () => {
+    try {
+      const [remote, local] = await Promise.all([getStories(), getLocalStories()]);
+      const combined = [...local, ...remote];
+      if (combined.length > 0) {
+        setAllStories(combined);
+      } else {
+        setAllStories(demoStories);
+      }
+    } catch {
+      setAllStories(demoStories);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+    setVisibleStories([]);
+  }, [selectedTag, showLocked]);
+
+  useEffect(() => {
+    loadMoreStories();
+  }, [allStories, page, selectedTag, showLocked]);
+
+  const tags = Array.from(new Set(allStories.flatMap(story => story.tags)));
 
   const renderItem = ({ item }: { item: Story }) => (
-    <TouchableOpacity style={styles.storyCard} disabled={item.locked}>
-      {/* Linear Gradient applied to the card background */}
+    <TouchableOpacity
+      style={styles.cardWrapper}
+      disabled={item.locked}
+      onPress={() =>
+        router.push({
+          pathname: '/readStory',
+          params: {
+            title: item.title,
+            content: item.content,
+            tags: item.tags.join(','),
+          },
+        })
+      }
+    >
       <LinearGradient
-        colors={['#0a0f2c', '#1f103f', '#330d4e']} // Colors of the gradient
-        style={styles.gradientBackground}
-        start={{ x: 0.2, y: 0 }}
+        colors={['#1c0045', '#3d0072']}
+        style={styles.card}
+        start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.storyTitle}>{item.title}</Text>
-            {item.locked && <Text style={styles.locked}></Text>}
-          </View>
-          <View style={styles.tagContainer}>
-            {item.tags.map((tag, index) => (
-              <Text key={index} style={styles.tag}>{tag}</Text>
-            ))}
-          </View>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          {item.locked && <Ionicons name="lock-closed" size={16} color="#ff66cc" />}
+        </View>
+        <View style={styles.cardTags}>
+          {item.tags?.map((tag, index) => (
+            <Text key={index} style={styles.tagPill}>{tag}</Text>
+          ))}
         </View>
       </LinearGradient>
     </TouchableOpacity>
@@ -48,21 +124,58 @@ export default function HistoriasScreen() {
 
   return (
     <LinearGradient
-      colors={['#0a0f2c', '#1f103f', '#330d4e']} // Colors of the background gradient
+      colors={['#0a0f2c', '#1f103f', '#330d4e']}
       style={styles.container}
       start={{ x: 0.2, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       <Text style={styles.header}>Historias Anónimas</Text>
-      <FlatList
-        data={stories}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.flatListContent}
-      />
-      <TouchableOpacity style={styles.writeBtn} onPress={() => router.push('/writeStory')}>
-        <Text style={styles.writeText}> Escribir historia</Text>
-      </TouchableOpacity>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 5 }}>
+        {[null, ...tags].map((tag, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.tag, selectedTag === tag && styles.tagSelected]}
+            onPress={() => setSelectedTag(tag)}
+          >
+            <Text style={[styles.tagText, selectedTag === tag && styles.tagTextSelected]}>
+              {tag || 'Todas'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {['unlocked', 'locked'].map((type) => (
+          <TouchableOpacity
+            key={type}
+            style={[styles.tag, showLocked === type && styles.tagSelected]}
+            onPress={() => setShowLocked(type as 'locked' | 'unlocked')}
+          >
+            <Text style={[styles.tagText, showLocked === type && styles.tagTextSelected]}>
+              {type === 'locked' ? 'Bloqueadas' : 'Desbloqueadas'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#fff" />
+      ) : (
+        <FlatList
+          data={visibleStories}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.flatListContent}
+        />
+      )}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
+        <TouchableOpacity onPress={() => setPage((prev) => Math.max(1, prev - 1))} style={styles.pageBtn}>
+          <Text style={styles.pageBtnText}>Anterior</Text>
+        </TouchableOpacity>
+        <Text style={{ color: '#fff', paddingHorizontal: 16 }}>Página {page}</Text>
+        <TouchableOpacity onPress={() => setPage((prev) => prev + 1)} style={styles.pageBtn}>
+          <Text style={styles.pageBtnText}>Siguiente</Text>
+        </TouchableOpacity>
+      </View>
     </LinearGradient>
   );
 }
@@ -74,65 +187,73 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   header: {
-    fontSize: 30,
+    fontSize: 28,
     color: '#F4F4F4',
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
-    letterSpacing: 1.2,
   },
   flatListContent: {
-    paddingBottom: 80, // Extra space at the bottom for the write button
+    paddingBottom: 100,
   },
-  storyCard: {
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
+  cardWrapper: {
+    marginBottom: 16,
     width: width - 48,
+    alignSelf: 'center',
   },
-  gradientBackground: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 20,
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cardContent: {
-    position: 'relative',
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  storyTitle: {
-    fontSize: 20,
+  cardTitle: {
+    fontSize: 16,
+    color: '#fff',
     fontWeight: '600',
-    color: '#F4F4F4',
   },
-  locked: {
-    color: '#ff338a',
-    fontSize: 18,
-  },
-  tagContainer: {
+  cardTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
+    gap: 8,
+    marginBottom: 18,
+  },
+  tagPill: {
+    backgroundColor: '#111',
+    color: '#aaa',
+    fontSize: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 8,
   },
   tag: {
     backgroundColor: '#222',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tagSelected: {
+    backgroundColor: '#ff338a',
+  },
+  tagText: {
     color: '#aaa',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
     fontSize: 14,
-    marginRight: 6,
-    marginBottom: 6,
+    fontWeight: '600',
+  },
+  tagTextSelected: {
+    color: '#fff',
   },
   writeBtn: {
     backgroundColor: '#fff',
@@ -148,5 +269,16 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: '600',
+  },
+  pageBtn: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 4,
+  },
+  pageBtnText: {
+    fontWeight: 'bold',
+    color: '#000',
   },
 });

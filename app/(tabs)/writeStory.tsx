@@ -1,5 +1,9 @@
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Dimensions } from 'react-native';
+import {
+  StyleSheet, Text, TextInput, TouchableOpacity,
+  View, ScrollView, Dimensions, Switch, Alert
+} from 'react-native';
 import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { saveStory } from '../../firestore';
 
@@ -8,17 +12,54 @@ const { width } = Dimensions.get('window');
 export default function WriteStory() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [tags, setTags] = useState('');
+  const [locked, setLocked] = useState(false);
+
+  const saveStoryLocal = async (story: {
+    title: string;
+    content: string;
+    tags: string[];
+    locked: boolean;
+    timestamp: number;
+  }) => 
+   {
+    try {
+      const existing = await AsyncStorage.getItem('localStories');
+      const stories = existing ? JSON.parse(existing) : [];
+      stories.push(story);
+      await AsyncStorage.setItem('localStories', JSON.stringify(stories));
+    } catch (e) {
+      console.error('Error guardando historia local:', e);
+    }
+  };
 
   const handleSubmit = async () => {
     if (title && content) {
-      const success = await saveStory(title, content);
-      if (success) {
-        alert('Historia enviada de forma anónima ');
-        setTitle('');
-        setContent('');
+      const tagArray = tags.split(',').map(tag => tag.trim());
+      const story = {
+        title,
+        content,
+        tags: tagArray,
+        locked,
+        timestamp: Date.now()
+      };
+
+      // Guardar en Firestore
+      const onlineSuccess = await saveStory(title, content, tagArray, locked);
+
+      // Guardar localmente
+      await saveStoryLocal(story);
+
+      if (onlineSuccess) {
+        alert('Historia enviada de forma anónima');
       } else {
-        alert('Error al guardar la historia.');
+        alert('Guardada localmente. Se enviará cuando haya conexión.');
       }
+
+      setTitle('');
+      setContent('');
+      setTags('');
+      setLocked(false);
     } else {
       alert('Por favor, completa todos los campos.');
     }
@@ -27,6 +68,8 @@ export default function WriteStory() {
   const handleClear = () => {
     setTitle('');
     setContent('');
+    setTags('');
+    setLocked(false);
   };
 
   return (
@@ -60,30 +103,50 @@ export default function WriteStory() {
           textAlignVertical="top"
         />
 
+        <Text style={styles.label}>Tags (separados por coma)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: +18, Real, Anónimo"
+          placeholderTextColor="#888"
+          value={tags}
+          onChangeText={setTags}
+        />
+
+        <View style={styles.switchContainer}>
+          <Text style={styles.label}>¿Bloquear historia?</Text>
+          <Switch value={locked} onValueChange={setLocked} />
+        </View>
+
         <TouchableOpacity style={styles.btn} onPress={handleSubmit}>
           <Text style={styles.btnText}>Publicar Anónimamente</Text>
         </TouchableOpacity>
 
-        {(title !== '' || content !== '') && (
-          <TouchableOpacity style={[styles.btn, styles.clearBtn]} onPress={handleClear}>
-            <Text style={[styles.btnText, styles.clearBtnText]}> Limpiar</Text>
-          </TouchableOpacity>
-        )}
+
+
+{/* BOTÓN DE LIMPIAR SIEMPRE VISIBLE PARA PRUEBA */}
+<TouchableOpacity
+  style={[styles.btn, styles.clearBtn]}
+  onPress={handleClear}
+>
+  <Text style={[styles.btnText, styles.clearBtnText]}>Limpiar</Text>
+</TouchableOpacity>
+
+
       </ScrollView>
     </LinearGradient>
   );
 }
 
+
 const styles = StyleSheet.create({
   gradientBackground: {
     flex: 1,
     padding: 24,
-    justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   wrapper: {
     padding: 24,
-    paddingBottom: 100,
+    paddingBottom: 150,
   },
   header: {
     fontSize: 32,
@@ -106,13 +169,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 8,
   },
   textarea: {
     backgroundColor: '#FFF',
@@ -122,13 +178,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     height: 200,
     marginBottom: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 8,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   btn: {
     backgroundColor: '#FFF',
@@ -136,11 +191,6 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#00e0ff',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 16,
   },
   btnText: {
     color: '#000',
@@ -154,4 +204,23 @@ const styles = StyleSheet.create({
   clearBtnText: {
     color: '#fff',
   },
+  clearButtonVisible: {
+    backgroundColor: '#ff2d55',
+    paddingVertical: 16,
+    borderRadius: 40,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 80,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+  },
+  clearButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  
 });

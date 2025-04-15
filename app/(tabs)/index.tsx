@@ -1,8 +1,6 @@
 import {
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  Image,
   View,
   Text,
   ScrollView,
@@ -10,22 +8,123 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import phrases from '@/suxy_phrases_2000.json';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import * as Animatable from 'react-native-animatable';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useCallback } from 'react';
+import { getStories, Story } from '@/firestore'; // asegúrate que este es el correcto
+import rawDemoStories from '@/demo_stories_100.json';
+import { Timestamp } from 'firebase/firestore';
+import {
+  TeaserCard,
+  UnlockModal,
+  UnlockedContent,
+  TopTeasers,
+  CategoriesTabs
+} from '@/components';
 
-const mockStories = [
-  { id: '1', title: 'Una noche en el ascensor', tags: ['+18', 'Real'], locked: false },
-  { id: '2', title: 'Mi fantasía con mi mejor amiga', tags: ['Fantasía', 'Anónimo'], locked: true },
-];
+
+interface UnlockModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirmUnlock: () => void;
+  unlockPrompt: string;
+  price: number;
+  onUnlock?: () => void; // ✅ hacerlo opcional
+}
+
 
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 360;
-
   const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+  const [selectedTeaser, setSelectedTeaser] = useState<any | null>(null);
+  const [unlockedTeaser, setUnlockedTeaser] = useState<any | null>(null);
+  const [latestStories, setLatestStories] = useState<Story[]>([]);
+
+  const getFromAsync = async (): Promise<Story[]> => {
+    const stored = await AsyncStorage.getItem('localStories');
+    const parsed: Story[] = stored ? JSON.parse(stored) : [];
+    return parsed;
+  };
+
+  const getFromJson = (): Story[] => {
+    return rawDemoStories.map((story, index) => ({
+      ...story,
+      id: `demo-${index}`,
+      createdAt: Timestamp.now(), // ✅ usa el Timestamp real
+    }));
+  };
+  
+  const getFromFirebase = async (): Promise<Story[]> => {
+    const data = await getStories();
+    return data || [];
+  };
+
+  const fetchRandomSource = async () => {
+    try {
+      const sources = ['async', 'json', 'firebase'];
+      const random = sources[Math.floor(Math.random() * sources.length)];
+  
+      let stories: Story[] = [];
+  
+      if (random === 'async') {
+        const fromAsync = await getFromAsync();
+        if (fromAsync.length) stories = fromAsync;
+      }
+  
+      if (!stories.length && random === 'firebase') {
+        const fromFirebase = await getFromFirebase();
+        if (fromFirebase.length) stories = fromFirebase;
+      }
+  
+      if (!stories.length) {
+        stories = getFromJson();
+      }
+  
+      if (!stories.length) {
+        setLatestStories([]); // fallback visible
+        return;
+      }
+  
+      const sorted = stories.sort((a: Story, b: Story) => b.createdAt?.seconds - a.createdAt?.seconds);
+      setLatestStories(sorted.slice(0, 2));
+    } catch (error) {
+      console.error('Error al cargar historias:', error);
+      setLatestStories([]);
+    }
+  };
+  
+  const teaserList = [
+    {
+      id: 't1',
+      teaserText: '¿Te atreves a ver lo que tengo puesto debajo?',
+      unlockPrompt: 'Adivina o desbloquea para ver mi foto completa...',
+      thumbnailUrl: 'https://i.imgur.com/KwPYoOQ.jpeg',
+      mediaUrl: 'https://i.imgur.com/KwPYoOQ.jpeg',
+      type: 'image',
+      price: 0.99,
+      unlockCount: 36,
+    },
+    {
+      id: 't2',
+      teaserText: 'Solo te muestro el video si puedes desbloquearlo 🔥',
+      unlockPrompt: '3 segundos no son suficientes... ¿pagas por el resto?',
+      thumbnailUrl: 'https://i.imgur.com/IXLmZkD.png',
+      mediaUrl: 'https://i.imgur.com/IXLmZkD.png',
+      type: 'video',
+      price: 2.49,
+      unlockCount: 64,
+    },
+  ];
+  useFocusEffect(
+    useCallback(() => {
+      fetchRandomSource();
+    }, [])
+  );
 
   const handleShare = async () => {
     try {
@@ -44,14 +143,12 @@ export default function HomeScreen() {
       start={{ x: 0.2, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <View>
-     
-</View>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.container, { minHeight: 720 }]} showsVerticalScrollIndicator={false}>
+        {/* HEADER */}
         <Animatable.View animation="fadeInDown" delay={200}>
           <Text style={[styles.title, isSmallScreen && { fontSize: 26 }]}>
             Bienvenido a <Text style={styles.highlight}>SUXY</Text>
-          </Text>   
+          </Text>
           <Text style={[styles.subtitle, isSmallScreen && { fontSize: 13 }]}>
             Historias calientes, frases atrevidas y juegos para provocar tus sentidos.
           </Text>
@@ -70,7 +167,7 @@ export default function HomeScreen() {
           </View>
         </Animatable.View>
 
-        {/* GAME CARD REDISEÑADO */}
+        {/* JUEGO SEXY */}
         <Animatable.View animation="fadeInUp" delay={600} style={styles.card}>
           <Text style={styles.cardTitleCenter}>Juego Sexy del Día</Text>
           <TouchableOpacity
@@ -86,11 +183,11 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </Animatable.View>
 
-        {/* HISTORIAS REDISEÑADAS */}
+        {/* HISTORIAS ANÓNIMAS */}
         <Animatable.View animation="fadeInUp" delay={800} style={styles.card}>
           <Text style={styles.cardTitle}> Historias Anónimas</Text>
           <View style={styles.innerCardStack}>
-            {mockStories.map((story) => (
+            {latestStories.map((story) => (
               <TouchableOpacity
                 key={story.id}
                 onPress={() => router.push("/history")}
@@ -111,7 +208,7 @@ export default function HomeScreen() {
                       )}
                     </View>
                     <View style={styles.storyTags}>
-                      {story.tags.map((tag, index) => (
+                      {story.tags?.map((tag: string, index: number) => (
                         <Text key={index} style={styles.tag}>{tag}</Text>
                       ))}
                     </View>
@@ -122,7 +219,7 @@ export default function HomeScreen() {
           </View>
         </Animatable.View>
 
-        {/* VIP CARD REDISEÑADA */}
+        {/* VIP */}
         <Animatable.View animation="fadeInUp" delay={1000} style={styles.card}>
           <Text style={styles.cardTitle}> Contenido VIP</Text>
           <TouchableOpacity
@@ -137,10 +234,55 @@ export default function HomeScreen() {
             <Text style={styles.vipCTA}> Ver beneficios</Text>
           </TouchableOpacity>
         </Animatable.View>
+
+        {/* DESBLOQUEA O ATRÉVETE */}
+<Animatable.View animation="fadeInUp" delay={1200} style={styles.card}>
+  <Text style={styles.cardTitleCenter}>Desbloquea o Atrévete 🔓</Text>
+
+  <CategoriesTabs active="Nuevos" onChange={() => {}} />
+
+  <TopTeasers topTeasers={teaserList} onSelect={setSelectedTeaser} />
+
+  <View style={{ marginTop: 16 }}>
+    {teaserList.map((t) => (
+      <TeaserCard key={t.id} teaser={t} onUnlock={setSelectedTeaser} />
+    ))}
+  </View>
+</Animatable.View>
+{/* MODAL PARA DESBLOQUEAR */}
+{selectedTeaser && (
+  <UnlockModal
+  visible={!!selectedTeaser}
+  onClose={() => setSelectedTeaser(null)}
+  unlockPrompt={selectedTeaser.unlockPrompt}
+  price={selectedTeaser.price}
+  onConfirmUnlock={() => {
+    setUnlockedTeaser(selectedTeaser);
+    setSelectedTeaser(null);
+  }}
+  onUnlock={() => {
+    console.log('desbloqueado'); // ✅ lo que sea que quieras hacer
+  }}
+/>
+
+)}
+
+{/* CONTENIDO DESBLOQUEADO */}
+{unlockedTeaser && (
+  <UnlockedContent
+    mediaUrl={unlockedTeaser.mediaUrl}
+    contentType={unlockedTeaser.type}
+    caption={unlockedTeaser.teaserText}
+    onClose={() => setUnlockedTeaser(null)}
+  />
+)}
+
       </ScrollView>
     </LinearGradient>
   );
 }
+
+// Usa tus estilos anteriores sin cambios
 
 const styles = StyleSheet.create({
   background: {

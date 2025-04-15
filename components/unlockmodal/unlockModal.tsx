@@ -9,6 +9,14 @@ interface UnlockModalProps {
   onUnlock: () => void;
 }
 
+interface UnlockModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirmUnlock: () => void;
+  unlockPrompt: string; //  ← esta línea puede estar faltando
+  price: number;
+}
+
 export default function UnlockModal({ visible, onClose, onUnlock }: UnlockModalProps) {
   return (
     <Modal visible={visible} transparent animationType="fade">
