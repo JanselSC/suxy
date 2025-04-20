@@ -17,6 +17,7 @@ import { useState, useCallback } from 'react';
 import { getStories, Story } from '@/firestore'; // asegúrate que este es el correcto
 import rawDemoStories from '@/demo_stories_100.json';
 import { Timestamp } from 'firebase/firestore';
+
 import {
   TeaserCard,
   UnlockModal,

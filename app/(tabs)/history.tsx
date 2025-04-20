@@ -33,6 +33,8 @@ export default function HistoriasScreen() {
   const [page, setPage] = useState(1);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showLocked, setShowLocked] = useState<'all' | 'locked' | 'unlocked'>('all');
+  const [tokens, setTokens] = useState(0);
+  const [unlockedStoryIds, setUnlockedStoryIds] = useState<string[]>([]);
 
   const getLocalStories = async (): Promise<Story[]> => {
     try {
@@ -73,6 +75,22 @@ export default function HistoriasScreen() {
     }
   };
 
+  const unlockStory = async (storyId: string) => {
+    if (tokens < 1) {
+      alert('No tienes tokens suficientes para desbloquear esta historia.');
+      return;
+    }
+
+    const newTokens = tokens - 1;
+    const newUnlocked = [...unlockedStoryIds, storyId];
+
+    setTokens(newTokens);
+    setUnlockedStoryIds(newUnlocked);
+
+    await AsyncStorage.setItem('tokens', newTokens.toString());
+    await AsyncStorage.setItem('unlockedStories', JSON.stringify(newUnlocked));
+  };
+
   useEffect(() => {
     fetchStories();
   }, []);
@@ -86,41 +104,75 @@ export default function HistoriasScreen() {
     loadMoreStories();
   }, [allStories, page, selectedTag, showLocked]);
 
+  useEffect(() => {
+    (async () => {
+      const storedTokens = await AsyncStorage.getItem('tokens');
+      setTokens(storedTokens ? parseInt(storedTokens) : 0);
+
+      const unlocked = await AsyncStorage.getItem('unlockedStories');
+      setUnlockedStoryIds(unlocked ? JSON.parse(unlocked) : []);
+    })();
+  }, []);
+
   const tags = Array.from(new Set(allStories.flatMap(story => story.tags)));
 
-  const renderItem = ({ item }: { item: Story }) => (
-    <TouchableOpacity
-      style={styles.cardWrapper}
-      disabled={item.locked}
-      onPress={() =>
-        router.push({
-          pathname: '/readStory',
-          params: {
-            title: item.title,
-            content: item.content,
-            tags: item.tags.join(','),
-          },
-        })
-      }
-    >
-      <LinearGradient
-        colors={['#1c0045', '#3d0072']}
-        style={styles.card}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+  const renderItem = ({ item }: { item: Story }) => {
+    const isUnlocked = !item.locked || unlockedStoryIds.includes(item.id);
+
+    return (
+      <View style={styles.cardWrapper}>
+      <TouchableOpacity
+        onPress={() =>
+          isUnlocked &&
+          router.push({
+            pathname: '/readStory',
+            params: {
+              title: item.title,
+              content: item.content,
+              tags: item.tags.join(','),
+            },
+          })
+        }
       >
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {item.locked && <Ionicons name="lock-closed" size={16} color="#ff66cc" />}
-        </View>
-        <View style={styles.cardTags}>
-          {item.tags?.map((tag, index) => (
-            <Text key={index} style={styles.tagPill}>{tag}</Text>
-          ))}
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+        <LinearGradient
+          colors={['#1c0045', '#3d0072']}
+          style={styles.card}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            {item.locked && !isUnlocked && (
+              <Ionicons name="lock-closed" size={16} color="#ff66cc" />
+            )}
+          </View>
+    
+          <View style={styles.cardTags}>
+            {item.tags?.map((tag, index) => (
+              <Text key={index} style={styles.tagPill}>{tag}</Text>
+            ))}
+          </View>
+    
+          {item.locked && !isUnlocked && (
+            <TouchableOpacity
+              style={{
+                marginTop: 10,
+                backgroundColor: '#ff338a',
+                borderRadius: 20,
+                paddingVertical: 6,
+                alignItems: 'center',
+              }}
+              onPress={() => unlockStory(item.id)}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Desbloquear con 1 token</Text>
+            </TouchableOpacity>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+    
+    );
+  };
 
   return (
     <LinearGradient
@@ -130,6 +182,10 @@ export default function HistoriasScreen() {
       end={{ x: 1, y: 1 }}
     >
       <Text style={styles.header}>Historias Anónimas</Text>
+
+      <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 10 }}>
+        Tokens disponibles: {tokens}
+      </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 5 }}>
         {[null, ...tags].map((tag, index) => (

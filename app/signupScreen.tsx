@@ -10,7 +10,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -19,10 +20,11 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
 
-  const handleSignup = () => {
-    if (!email || !password || !confirmPassword) {
-      alert('Completa todos los campos.');
+  const handleSignup = async () => {
+    if (!email || !password || !confirmPassword || !role) {
+      alert('Completa todos los campos y selecciona tu rol.');
       return;
     }
     if (password !== confirmPassword) {
@@ -30,12 +32,27 @@ export default function SignupScreen() {
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        alert('Cuenta creada exitosamente ');
-        router.replace('/');
-      })
-      .catch((err) => alert('Error: ' + err.message));
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // 🔥 Guardamos datos del usuario en Firestore
+      await setDoc(doc(db, 'users', uid), {
+        email,
+        role,
+        createdAt: new Date(),
+      });
+
+      alert(`Cuenta creada exitosamente como ${role.toUpperCase()}`);
+      router.replace('/');
+    } catch (err) {
+      if (err instanceof Error) {
+        alert('Error: ' + err.message);
+      } else {
+        alert('Ocurrió un error desconocido.');
+      }
+    }
+    
   };
 
   return (
@@ -80,6 +97,29 @@ export default function SignupScreen() {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
+
+        <Text style={[styles.label, { marginTop: 12 }]}>Select Role</Text>
+        <View style={styles.roleRow}>
+          <TouchableOpacity
+            style={[
+              styles.roleBtn,
+              role === 'cliente' && styles.roleSelected,
+            ]}
+            onPress={() => setRole('cliente')}
+          >
+            <Text style={styles.roleText}>🔥 Cliente</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.roleBtn,
+              role === 'creadora' && styles.roleSelected,
+            ]}
+            onPress={() => setRole('creadora')}
+          >
+            <Text style={styles.roleText}>💃 Creadora</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.loginBtn} onPress={handleSignup}>
           <LinearGradient
@@ -148,6 +188,28 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 20,
     fontSize: 26,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  roleBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  roleSelected: {
+    backgroundColor: '#d80060',
+    borderColor: '#d80060',
+  },
+  roleText: {
+    color: '#000',
+    fontWeight: 'bold',
   },
   loginBtn: {
     borderRadius: 30,

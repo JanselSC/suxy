@@ -1,7 +1,5 @@
-// components/Users/BuyCoinsScreen.tsx
-
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Linking, Alert } from 'react-native';
 import { useCoins } from '../coin/CoinContext';
 
 const coinPacks = [
@@ -11,13 +9,22 @@ const coinPacks = [
   { id: '4', coins: 1000, price: 6.99 },
 ];
 
+const PAYPAL_LINK = 'https://www.paypal.com/ncp/payment/5BFNHCAC44YMS';
+
 export default function BuyCoinsScreen() {
   const { addCoins } = useCoins();
 
   const handleBuy = (coins: number) => {
-    // En MVP: añadir monedas directo (simulación)
-    addCoins(coins);
-    alert(`Compraste ${coins} monedas`);
+    // Abrir enlace de PayPal
+    Linking.openURL(PAYPAL_LINK)
+      .then(() => {
+        // Simulación (MVP)
+        addCoins(coins);
+        Alert.alert('¡Éxito!', `Se añadieron ${coins} monedas (modo prueba MVP)`);
+      })
+      .catch(() => {
+        Alert.alert('Error', 'No se pudo abrir el enlace de pago');
+      });
   };
 
   return (

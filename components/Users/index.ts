@@ -1,2 +1,4 @@
-export { default as BuyCoinsScreen } from '../buyCoins/BuyCoinsScreen';
+
+export { default as BuyCoinsScreen } from '../buyCoins/BuyCoinsScreen'
+
 
