@@ -6,24 +6,43 @@ import {
   View,
   Dimensions,
   Modal,
+  Linking,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router'; // si estás usando expo-router
+import { useCoins } from '../../components/coin/CoinContext'; // ajusta el path si lo guardaste en otro lugar
+
+
 
 const { width } = Dimensions.get('window');
 
+const PAYPAL_LINK = 'https://www.paypal.com/ncp/payment/5BFNHCAC44YMS';
+
 export default function VIPCard() {
   const [modalVisible, setModalVisible] = useState(false);
-  const router = useRouter(); // para navegar a BuyCoinsScreen
+  const { coins, spendCoins } = useCoins();
 
-  const handleUnlockWithTokens = () => {
-    setModalVisible(false);
-    alert('Función para pagar con tokens (a implementar)');
+  const handleUnlockWithTokens = async () => {
+    if (coins < 1) {
+      alert('No tienes suficientes tokens.');
+      return;
+    }
+  
+    const success = await spendCoins(1);
+    if (success) {
+      setModalVisible(false);
+      alert('Contenido desbloqueado con 1 token 🔓🔥');
+      // Aquí puedes hacer lo que quieras tras desbloquear (navegar, mostrar historia, etc.)
+    } else {
+      alert('Error al gastar el token.');
+    }
   };
-
+  
   const handleUnlockWithMoney = () => {
     setModalVisible(false);
-    router.push('/../components/buyCoins/BuyCoinsScreen');
+    Linking.openURL(PAYPAL_LINK).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir el enlace de pago');
+    });
   };
 
   return (

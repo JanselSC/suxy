@@ -20,11 +20,12 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
+  const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
+  const [genero, setGenero] = useState<'masculino' | 'femenino' | null>(null);
 
   const handleSignup = async () => {
-    if (!email || !password || !confirmPassword || !role) {
-      alert('Completa todos los campos y selecciona tu rol.');
+    if (!email || !password || !confirmPassword || !role || !genero) {
+      alert('Completa todos los campos, selecciona tu rol y género.');
       return;
     }
     if (password !== confirmPassword) {
@@ -36,10 +37,10 @@ const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // 🔥 Guardamos datos del usuario en Firestore
       await setDoc(doc(db, 'users', uid), {
         email,
         role,
+        genero,
         createdAt: new Date(),
       });
 
@@ -52,7 +53,6 @@ const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
         alert('Ocurrió un error desconocido.');
       }
     }
-    
   };
 
   return (
@@ -101,23 +101,32 @@ const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
         <Text style={[styles.label, { marginTop: 12 }]}>Select Role</Text>
         <View style={styles.roleRow}>
           <TouchableOpacity
-            style={[
-              styles.roleBtn,
-              role === 'cliente' && styles.roleSelected,
-            ]}
+            style={[styles.roleBtn, role === 'cliente' && styles.roleSelected]}
             onPress={() => setRole('cliente')}
           >
             <Text style={styles.roleText}>🔥 Cliente</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[
-              styles.roleBtn,
-              role === 'creadora' && styles.roleSelected,
-            ]}
+            style={[styles.roleBtn, role === 'creadora' && styles.roleSelected]}
             onPress={() => setRole('creadora')}
           >
             <Text style={styles.roleText}>💃 Creadora</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.label, { marginTop: 8 }]}>Selecciona tu género</Text>
+        <View style={styles.roleRow}>
+          <TouchableOpacity
+            style={[styles.roleBtn, genero === 'masculino' && styles.roleSelected]}
+            onPress={() => setGenero('masculino')}
+          >
+            <Text style={styles.roleText}>🙋 Hombre</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, genero === 'femenino' && styles.roleSelected]}
+            onPress={() => setGenero('femenino')}
+          >
+            <Text style={styles.roleText}>🙋‍♀️ Mujer</Text>
           </TouchableOpacity>
         </View>
 

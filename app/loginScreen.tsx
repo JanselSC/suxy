@@ -10,9 +10,31 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword} from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useAuth } from '@/AuthContext'; //  Verifica que este path esté bien
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig'; // asegúrate de tener `db` exportado desde firebaseConfig.ts
+import type { User } from 'firebase/auth';
+
+
+
+const crearUsuarioEnFirestoreSiNoExiste = async (user:User) => {
+  const userRef = doc(db, 'usuarios', user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    await setDoc(userRef, {
+      email: user.email,
+      tokens: 0,
+      historial: [],
+    });
+    console.log('✅ Usuario creado en Firestore con tokens');
+  } else {
+    console.log('🔁 Usuario ya existe en Firestore');
+  }
+};
+
 
 const { width } = Dimensions.get('window');
 
@@ -27,24 +49,28 @@ export default function LoginScreen() {
       alert('Por favor, completa todos los campos.');
       return;
     }
-
+  
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const { uid, email: userEmail, displayName } = userCredential.user;
-
-      console.log('[ LOGIN]', userCredential.user);
-
+      const user = userCredential.user;
+  
+      // 🧠 Asegura documento en Firestore
+      await crearUsuarioEnFirestoreSiNoExiste(user);
+  
+      const { uid, email: userEmail, displayName } = user;
+  
       setUser({
         uid,
         email: userEmail ?? '',
         displayName: displayName ?? '',
       });
-
+  
       router.replace('./userDashboardNew');
     } catch (err: any) {
       alert('Error al iniciar sesión: ' + err.message);
     }
   };
+  
 
   return (
     <LinearGradient
