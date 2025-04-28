@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -20,11 +21,11 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'cliente' | 'creadora' | null>(null);
+  const [rol, setRol] = useState<'cliente' | 'creadora' | null>(null);
   const [genero, setGenero] = useState<'masculino' | 'femenino' | null>(null);
 
   const handleSignup = async () => {
-    if (!email || !password || !confirmPassword || !role || !genero) {
+    if (!email || !password || !confirmPassword || !rol || !genero) {
       alert('Completa todos los campos, selecciona tu rol y género.');
       return;
     }
@@ -37,14 +38,16 @@ export default function SignupScreen() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      await setDoc(doc(db, 'users', uid), {
+      await setDoc(doc(db, 'usuarios', uid), {
         email,
-        role,
+        rol,
         genero,
+        tokens: 0,
+        historial: [],
         createdAt: new Date(),
       });
 
-      alert(`Cuenta creada exitosamente como ${role.toUpperCase()}`);
+      alert(`Cuenta creada exitosamente como ${rol.toUpperCase()}`);
       router.replace('/');
     } catch (err) {
       if (err instanceof Error) {
@@ -62,94 +65,97 @@ export default function SignupScreen() {
       start={{ x: 0.2, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <View style={styles.topTextBox}>
-        <Text style={styles.hello}>Create</Text>
-        <Text style={styles.signIn}>Your Account</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>Gmail</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="you@email.com"
-          placeholderTextColor="#aaa"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="********"
-          placeholderTextColor="#aaa"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="********"
-          placeholderTextColor="#aaa"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-
-        <Text style={[styles.label, { marginTop: 12 }]}>Select Role</Text>
-        <View style={styles.roleRow}>
-          <TouchableOpacity
-            style={[styles.roleBtn, role === 'cliente' && styles.roleSelected]}
-            onPress={() => setRole('cliente')}
-          >
-            <Text style={styles.roleText}>🔥 Cliente</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleBtn, role === 'creadora' && styles.roleSelected]}
-            onPress={() => setRole('creadora')}
-          >
-            <Text style={styles.roleText}>💃 Creadora</Text>
-          </TouchableOpacity>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={styles.topTextBox}>
+          <Text style={styles.hello}>Create</Text>
+          <Text style={styles.signIn}>Your Account</Text>
         </View>
-
-        <Text style={[styles.label, { marginTop: 8 }]}>Selecciona tu género</Text>
-        <View style={styles.roleRow}>
-          <TouchableOpacity
-            style={[styles.roleBtn, genero === 'masculino' && styles.roleSelected]}
-            onPress={() => setGenero('masculino')}
-          >
-            <Text style={styles.roleText}>🙋 Hombre</Text>
+  
+        <View style={styles.card}>
+          <Text style={styles.label}>Gmail</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="you@email.com"
+            placeholderTextColor="#aaa"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+  
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="********"
+            placeholderTextColor="#aaa"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+  
+          <Text style={styles.label}>Confirm Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="********"
+            placeholderTextColor="#aaa"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+  
+          <Text style={[styles.label, { marginTop: 12 }]}>Select Role</Text>
+          <View style={styles.roleRow}>
+            <TouchableOpacity
+              style={[styles.roleBtn, rol === 'cliente' && styles.roleSelected]}
+              onPress={() => setRol('cliente')}
+            >
+              <Text style={styles.roleText}>🔥 Cliente</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleBtn, rol === 'creadora' && styles.roleSelected]}
+              onPress={() => setRol('creadora')}
+            >
+              <Text style={styles.roleText}>💃 Creadora</Text>
+            </TouchableOpacity>
+          </View>
+  
+          <Text style={[styles.label, { marginTop: 8 }]}>Selecciona tu género</Text>
+          <View style={styles.roleRow}>
+            <TouchableOpacity
+              style={[styles.roleBtn, genero === 'masculino' && styles.roleSelected]}
+              onPress={() => setGenero('masculino')}
+            >
+              <Text style={styles.roleText}>🙋 Hombre</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleBtn, genero === 'femenino' && styles.roleSelected]}
+              onPress={() => setGenero('femenino')}
+            >
+              <Text style={styles.roleText}>🙋‍♀️ Mujer</Text>
+            </TouchableOpacity>
+          </View>
+  
+          <TouchableOpacity style={styles.loginBtn} onPress={handleSignup}>
+            <LinearGradient
+              colors={['#d80060', '#1f103f']}
+              style={styles.loginGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.loginText}>SIGN UP</Text>
+            </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleBtn, genero === 'femenino' && styles.roleSelected]}
-            onPress={() => setGenero('femenino')}
-          >
-            <Text style={styles.roleText}>🙋‍♀️ Mujer</Text>
-          </TouchableOpacity>
+  
+          <View style={styles.signupRow}>
+            <Text style={styles.noAccount}>Already have an account?</Text>
+            <TouchableOpacity onPress={() => router.push('/loginScreen')}>
+              <Text style={styles.signupLink}> Sign in</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <TouchableOpacity style={styles.loginBtn} onPress={handleSignup}>
-          <LinearGradient
-            colors={['#d80060', '#1f103f']}
-            style={styles.loginGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.loginText}>SIGN UP</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <View style={styles.signupRow}>
-          <Text style={styles.noAccount}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => router.push('/loginScreen')}>
-            <Text style={styles.signupLink}> Sign in</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </ScrollView>
     </LinearGradient>
   );
+  
 }
 
 const styles = StyleSheet.create({

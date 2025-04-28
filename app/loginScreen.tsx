@@ -54,10 +54,18 @@ export default function LoginScreen() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
   
-      // 🧠 Asegura documento en Firestore
-      await crearUsuarioEnFirestoreSiNoExiste(user);
-  
       const { uid, email: userEmail, displayName } = user;
+  
+      // 🔥 Obtener datos del usuario desde Firestore
+      const userRef = doc(db, 'usuarios', uid);
+      const userSnap = await getDoc(userRef);
+  
+      if (!userSnap.exists()) {
+        alert('No se encontraron datos del usuario en Firestore.');
+        return;
+      }
+  
+      const userData = userSnap.data();
   
       setUser({
         uid,
@@ -65,7 +73,12 @@ export default function LoginScreen() {
         displayName: displayName ?? '',
       });
   
-      router.replace('./userDashboardNew');
+      // ✅ Redirección según rol
+      if (userData.rol === 'creadora') {
+        router.replace('/CreatorDashboard');
+      } else {
+        router.replace('/userDashboardNew');
+      }
     } catch (err: any) {
       alert('Error al iniciar sesión: ' + err.message);
     }

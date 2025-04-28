@@ -5,12 +5,36 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
+import { CoinProvider } from '@/components/coin/CoinContext'; 
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { AuthProvider } from '@/AuthContext'; // ✅ Añadido aquí
+import { AuthProvider, useAuth } from '@/AuthContext'; 
+import { onAuthStateChanged } from 'firebase/auth'; 
+import { auth } from '../firebaseConfig'; // 🔥 Agrega firebase auth config
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+function SessionManager() {
+  const { setUser } = useAuth();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          displayName: firebaseUser.displayName ?? '',
+        });
+      } else {
+        setUser(null); 
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return null; // No renderiza nada visible
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -29,16 +53,19 @@ export default function RootLayout() {
   }
 
   return (
- 
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-           <AuthProvider> {/* ✅ Aquí se envuelve todo */}
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-        </AuthProvider>
-      </ThemeProvider>
-  
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <AuthProvider>
+        <CoinProvider>
+          {/* 🔥 Manejador de sesión global */}
+          <SessionManager /> 
+
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </CoinProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -3,6 +3,8 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth';
 
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyB8JcqfqaregtNnLh_mGY11mm5I__RakYo",
   authDomain: "suxy-73564.firebaseapp.com",
@@ -14,7 +16,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence); // Esto asegura que la sesión se guarde localmente
 export const db = getFirestore(app);
 export { auth, firebaseConfig }; // Esto es lo que te falta probablemente
  // Esto es lo que te falta probablemente
