@@ -1,70 +1,115 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '@/firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import React from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Dimensions,
+  Image,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/AuthContext';
+import UserDashboardNew from '../userDashboardNew';
 
-interface UserType {
-  uid: string;
-  email: string;
-  displayName?: string;
-  rol?: 'cliente' | 'creadora';
-}
+const { width } = Dimensions.get('window');
 
-interface AuthContextType {
-  user: UserType | null;
-  setUser: (user: UserType | null) => void;
-  loading: boolean;
-}
+export default function AuthScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  console.log('[ user en authScreen]:', user);
+  
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  setUser: () => {},
-  loading: true,
-});
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<UserType | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // 🔥 buscar el documento en Firestore
-        const userRef = doc(db, 'usuarios', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email ?? '',
-            displayName: firebaseUser.displayName ?? '',
-            rol: userData.rol ?? 'cliente', // 🔥 ahora sí se carga el rol real
-          });
-        } else {
-          // No hay documento en Firestore
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email ?? '',
-            displayName: firebaseUser.displayName ?? '',
-            rol: 'cliente', // Por defecto
-          });
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  if (user) {
+    return <UserDashboardNew />;
+  }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <LinearGradient
+      colors={['#0a0f2c', '#1f103f', '#330d4e']}
+      style={styles.container}
+      start={{ x: 0.2, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <View style={styles.inner}>
+        <Image
+        source={require('@/assets/images/suxy_logo.png')}
+        style={styles.logo}
+          resizeMode="contain"
+        />
+
+        <Text style={styles.title}>Welcome Back</Text>
+
+        <TouchableOpacity
+          style={styles.signInBtn}
+          onPress={() => router.push('/loginScreen')}
+        >
+          <Text style={styles.signInText}>SIGN IN</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.signUpBtn}
+          onPress={() => router.push('/signupScreen')}
+        >
+          <Text style={styles.signUpText}>SIGN UP</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.socialText}>Login with Social Media</Text>
+      </View>
+    </LinearGradient>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 28,
+    justifyContent: 'center',
+  },
+  inner: {
+    alignItems: 'center',
+  },
+  logo: {
+    width: 220,
+    height: 220,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 48,
+    textAlign: 'center',
+  },
+  signInBtn: {
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    borderRadius: 28,
+    paddingVertical: 14,
+    width: width - 80,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  signInText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  signUpBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    paddingVertical: 14,
+    width: width - 80,
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  signUpText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  socialText: {
+    color: '#ccc',
+    fontSize: 14,
+    marginBottom: 14,
+  },
+});

@@ -11,12 +11,14 @@ interface UserType {
 interface AuthContextType {
   user: UserType | null;
   setUser: React.Dispatch<React.SetStateAction<UserType | null>>;
+  loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserType | null>(null);
+  const [loading, setLoading] = useState(true); // ✅ esto faltaba
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -37,7 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthContext.Provider value={{ user, setUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
